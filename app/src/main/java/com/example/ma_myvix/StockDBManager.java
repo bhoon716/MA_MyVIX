@@ -12,8 +12,8 @@ import java.io.InputStreamReader;
 import java.lang.reflect.Field;
 
 public class StockDBManager {
-    private Context context;
-    private SQLiteDatabase database;
+    final private Context context;
+    final private SQLiteDatabase database;
 
     public StockDBManager(Context context, SQLiteDatabase database){
         this.context = context;
@@ -22,6 +22,9 @@ public class StockDBManager {
 
     private void log(String s) {
         Log.d("@@@@@@LOG@@@@@@", s);
+    }
+    private void log(double i) {
+        Log.d("@@@@@@LOG@@@@@@", String.valueOf(i));
     }
 
     public void importCSV() {
@@ -44,7 +47,7 @@ public class StockDBManager {
         }
 
         String createTableQuery = "CREATE TABLE IF NOT EXISTS " + name
-                + "(date TEXT, price REAL, open REAL, high REAL, low REAL, volume INTEGER, change_percentage TEXT)";
+                + "(date REAL, price REAL, open REAL, high REAL, low REAL, volume INTEGER, change_percentage TEXT)";
         database.execSQL(createTableQuery);
 
         InputStream is = context.getResources().openRawResource(resId);
@@ -55,6 +58,8 @@ public class StockDBManager {
         while((row = br.readLine()) != null){
             row = row.replace("\"", "");
             String[] values = row.split(",");
+            String[] date = values[0].split("/");
+            values[0] = date[2]+date[0]+date[1];
 
             String insertQuery = "INSERT INTO " + name + " (date, price, open, high, low, volume, change_percentage) " +
                     "VALUES (?, ?, ?, ?, ?, ?, ?)";
@@ -73,17 +78,48 @@ public class StockDBManager {
         return count > 0;
     }
 
-    public float getPrice(String symbol, String date){
-        String sql = "SELECT price FROM " + symbol + " WHERE date = '" + date + "'";
+    public double getPrice(String symbol, int date){
+        String sql = String.format("SELECT price FROM %s WHERE date = %d", symbol, date);
         Cursor cursor;
         cursor = database.rawQuery(sql, null);
 
-        float result = -999f;
+        double result = 0;
         while(cursor.moveToNext()){
-            result = cursor.getFloat(0);
+            result = cursor.getDouble(0);
         }
-        log("날짜 : " + date + "\t가격 : " + result);
         cursor.close();
+        log(symbol+" ("+date+"): "+result);
         return result;
+    }
+
+    public String getReturnRate(String symbol, int startDate, int endDate){
+        double startPrice = getPrice(symbol, startDate);
+        double endPrice = getPrice(symbol, endDate);
+        double returnRate = ((endPrice - startPrice) / startPrice) * 100;
+        return String.format("%.2f%%", returnRate);
+    }
+
+
+    public double getVolatility(String symbol, int startDate, int endDate){
+        // Calculate average change percentage
+        String avgQuery = String.format("SELECT avg(change_percentage) FROM %s WHERE date >= ? AND date <= ?", symbol);
+        Cursor avgCursor = database.rawQuery(avgQuery, new String[]{String.valueOf(startDate), String.valueOf(endDate)});
+        double average = 0.0;
+        if (avgCursor.moveToFirst()) {
+            average = avgCursor.getDouble(0);
+        }
+        avgCursor.close();
+
+        // Calculate standard deviation using SQL query
+        String stdDevQuery = String.format("SELECT sum((change_percentage - ?) * (change_percentage - ?)) / count(*) FROM %s WHERE date >= ? AND date <= ?", symbol);
+        Cursor stdDevCursor = database.rawQuery(stdDevQuery, new String[]{String.valueOf(average), String.valueOf(average), String.valueOf(startDate), String.valueOf(endDate)});
+        double variance = 0.0;
+        if (stdDevCursor.moveToFirst()) {
+            variance = stdDevCursor.getDouble(0);
+        }
+        stdDevCursor.close();
+
+        // Return square root of variance as standard deviation
+        return Math.sqrt(variance);
     }
 }

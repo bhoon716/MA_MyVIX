@@ -5,7 +5,6 @@ import android.os.Bundle;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
@@ -48,12 +47,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void log(String s) { Log.d("@@@@@@LOG@@@@@@", s); }
-    private void toast(String s) {
-        Toast.makeText(this, s, Toast.LENGTH_SHORT).show();}
+    private void log(double i) {
+        Log.d("@@@@@@LOG@@@@@@", String.valueOf(i));
+    }
 
     private void button1ClickListener(){
-        String symbol = "aapl";
-        String date = "04/21/2024";
-        stockDBManager.getPrice(symbol, date);
+        String symbol = "pltr";
+        int sDate = 20201122;
+        int eDate = 20240414;
+
+        log("수익률 : " + stockDBManager.getReturnRate(symbol, sDate, eDate));
+        log("표준편차 : " + stockDBManager.getVolatility(symbol, sDate, eDate));
     }
 }
